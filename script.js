@@ -54,12 +54,11 @@ function loadSavedText() {
 }
 
 function clearAll() {
-    if(confirm("Clear all text?")) {
-        document.getElementById('textInput').value = "";
-        localStorage.removeItem('stenoText');
-        currentIndex = 0;
-        initDisplay();
-    }
+    // The confirmation check has been removed for instant clearing
+    document.getElementById('textInput').value = "";
+    localStorage.removeItem('stenoText');
+    currentIndex = 0;
+    initDisplay();
 }
 
 // --- SPEED & THEME ---

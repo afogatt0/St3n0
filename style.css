@@ -37,6 +37,7 @@ body {
 .word-count{
     font-size: 17px;
     font-weight: 700;
+    text-decoration: underline;
 }
 
 header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -90,8 +91,8 @@ button {
     flex: 1; padding: 16px; border: none; border-radius: 12px; 
     font-weight: 700; cursor: pointer; transition: 0.2s; font-size: 16px;
 }
-.btn-play { background: var(--primary); color: white; }
-.btn-stop { background: var(--primary); color: white; }
+.btn-play { background: var(--primary); color: white; padding: 13px;}
+.btn-stop { background: var(--primary); color: white; padding: 13px;}
 
 .btn-icon { 
     background: none; 
@@ -138,16 +139,6 @@ button {
     #displayArea { min-height: 100px; font-size: 18px; }
 }
 
-.speed-row { 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; /* Centered buttons and text */
-    gap: 20px; 
-}
-#wpmVal { 
-    font-size: 24px; /* Made slightly larger since it's now the main focus */
-    font-weight: bold; 
-    color: var(--primary); 
-    min-width: 60px; 
-    text-align: center; 
+.btn-scan{
+    font-size: 12px;
 }
