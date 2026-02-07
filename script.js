@@ -166,3 +166,21 @@ function reset() {
 if (localStorage.getItem('stenoTheme') === 'night') toggleTheme();
 loadSavedText();
 initDisplay();
+
+function openGoogleLens() {
+    // Detect if the user is on a mobile device (Phone/Tablet)
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile) {
+        // Direct Intent for Android/iOS to open the Google App Camera immediately
+        window.location.href = 'intent://lens.google.com/vsearch#Intent;scheme=https;package=com.google.android.googlequicksearchbox;end';
+        
+        // Fallback for iOS/Older Android if the Intent fails
+        setTimeout(() => {
+            window.location.href = 'googleapp://vsearch';
+        }, 500);
+    } else {
+        // On Laptop/Desktop, open the Lens Upload page in a new tab
+        window.open('https://lens.google.com/upload', '_blank');
+    }
+}
