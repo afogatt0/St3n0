@@ -37,7 +37,6 @@ body {
 .word-count{
     font-size: 17px;
     font-weight: 700;
-    text-decoration: underline;
 }
 
 header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -69,7 +68,7 @@ select, textarea, input[type="text"] {
 textarea { height: 100px; margin-bottom: 10px; resize: none; font-family: sans-serif; }
 
 .speed-row { display: flex; align-items: center; gap: 8px; }
-#wpmVal { font-weight: bold; color: var(--primary); min-width: 35px; text-align: right; }
+#wpmVal { font-weight: bold; color: var(--primary); min-width: 35px; text-align: center; }
 #wpmSlider { flex-grow: 1; }
 
 .btn-control {
@@ -141,4 +140,5 @@ button {
 
 .btn-scan{
     font-size: 12px;
+
 }
