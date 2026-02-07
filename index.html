@@ -10,7 +10,7 @@
 
 <div class="container">
     <header>
-        <h1>Steno Dictation</h1>
+        <h1>stenows</h1>
         <div class="header-btns">
             <button class="btn-icon" onclick="window.open('https://greggdict.rliu.dev/', '_blank')" title="Open Gregg Dictionary">📖</button>
             <button class="btn-icon" onclick="openGoogleLens()" title="Open Google Lens">🔍</button>
@@ -48,11 +48,16 @@
             <label class="label-text">Practice Text:</label>
             <span class="word-count"><span id="wordCount">0</span> words</span>
         </div>
-        <div class="scanner-bar" style="margin-top: 5px;">
+        
+        <textarea id="textInput" class="custom-scroll" oninput="initDisplay(); saveText()" placeholder="Type or paste your text here..."></textarea>
+   <div class="scanner-bar" style="margin-top: 5px;">
             <button class="btn-scan" onclick="clearAll()">Clear All</button>
         </div>
-        <textarea id="textInput" class="custom-scroll" oninput="initDisplay(); saveText()" placeholder="Type or paste your text here..."></textarea>
     </div>
+
+    <footer class="developer-footer">
+        Developed by m.m.s
+    </footer>
 </div>
 
 <script src="script.js"></script>
