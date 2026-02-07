@@ -4,51 +4,79 @@ let words = [];
 let voices = [];
 let currentIndex = 0;
 let isPlaying = false;
-let stream = null;
 let timer = null;
 let wakeLock = null;
+let currentWpm = 30;
 
-// --- THEME & SETUP ---
+// --- VOICE LOADING (FIXED) ---
+function loadVoices() {
+    voices = synth.getVoices();
+    if (voices.length === 0) return; // Wait for voices to load
+
+    const englishVoices = voices.filter(v => v.lang.includes('en'));
+    
+    voiceSelect.innerHTML = englishVoices
+        .map(v => `<option value="${v.name}">${v.name}</option>`).join('');
+
+    // Neutral priority list to avoid "maarte" accents
+    const preferred = [
+        "Microsoft David", 
+        "Google US English", 
+        "Microsoft Zira", 
+        "Samantha", 
+        "English (Philippines)"
+    ];
+
+    for (let name of preferred) {
+        const found = englishVoices.find(v => v.name.includes(name));
+        if (found) {
+            voiceSelect.value = found.name;
+            break;
+        }
+    }
+}
+
+// Chrome/Edge/Safari handling for voice loading
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = loadVoices;
+}
+// Try immediately for Firefox
+loadVoices();
+
+// --- PERSISTENCE & CLEAR ---
+function saveText() {
+    localStorage.setItem('stenoText', document.getElementById('textInput').value);
+}
+
+function loadSavedText() {
+    const saved = localStorage.getItem('stenoText');
+    document.getElementById('textInput').value = saved ? saved : "";
+}
+
+function clearAll() {
+    if(confirm("Clear all text?")) {
+        document.getElementById('textInput').value = "";
+        localStorage.removeItem('stenoText');
+        currentIndex = 0;
+        initDisplay();
+    }
+}
+
+// --- SPEED & THEME ---
 function toggleTheme() {
     document.body.classList.toggle('night-theme');
     localStorage.setItem('stenoTheme', document.body.classList.contains('night-theme') ? 'night' : 'light');
 }
 
-function loadVoices() {
-    voices = synth.getVoices();
-    voiceSelect.innerHTML = voices
-        .filter(v => v.lang.includes('en'))
-        .map(v => `<option value="${v.name}">${v.name}</option>`).join('');
-}
-if (speechSynthesis.onvoiceschanged !== undefined) {
-    speechSynthesis.onvoiceschanged = loadVoices;
-}
-loadVoices();
-
-// --- PERSISTENCE ---
-function saveText() {
-    localStorage.setItem('stenoText', document.getElementById('textInput').value);
-}
-function loadSavedText() {
-    const saved = localStorage.getItem('stenoText');
-    if (saved) {
-        document.getElementById('textInput').value = saved;
-    }
-}
-
-// --- SPEED CONTROL ---
 function adjustSpeed(amount) {
-    const slider = document.getElementById('wpmSlider');
     const display = document.getElementById('wpmVal');
-    let currentVal = parseInt(slider.value);
-    let newVal = currentVal + amount;
-    if (newVal > 250) newVal = 250;
-    if (newVal < 15) newVal = 15;
-    slider.value = newVal;
-    display.innerText = newVal;
+    currentWpm += amount;
+    if (currentWpm > 250) currentWpm = 250;
+    if (currentWpm < 15) currentWpm = 15;
+    display.innerText = currentWpm;
 }
 
-// --- CORE STENO ENGINE ---
+// --- CORE ENGINE ---
 function initDisplay() {
     const text = document.getElementById('textInput').value.trim();
     words = text ? text.split(/\s+/) : [];
@@ -74,6 +102,7 @@ function setIndex(i) {
 }
 
 async function handlePlay() {
+    if (words.length === 0) return;
     if (isPlaying) {
         isPlaying = false;
         synth.cancel();
@@ -99,21 +128,23 @@ function speakNextWord() {
         reset();
         return;
     }
-    const wpm = document.getElementById('wpmSlider').value;
-    const msPerWord = (60 / wpm) * 1000;
     
+    const msPerWord = (60 / currentWpm) * 1000;
     synth.cancel(); 
 
     const utterance = new SpeechSynthesisUtterance(words[currentIndex]);
-    utterance.voice = voices.find(v => v.name === voiceSelect.value);
-    if (wpm > 130) utterance.rate = 1.5;
-    else if (wpm > 90) utterance.rate = 1.2;
+    const selectedVoice = voices.find(v => v.name === voiceSelect.value);
+    if (selectedVoice) utterance.voice = selectedVoice;
+    
+    // Adjust rate for natural flow at speed
+    if (currentWpm > 130) utterance.rate = 1.4;
+    else if (currentWpm > 90) utterance.rate = 1.1;
     else utterance.rate = 1.0;
 
     document.querySelectorAll('.word').forEach(el => el.classList.remove('current-word'));
     const el = document.getElementById(`w-${currentIndex}`);
     if (el) {
-        el.classList.add('current-word', 'past-word');
+        el.classList.add('current-word');
         el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
     synth.speak(utterance);
@@ -132,64 +163,6 @@ function reset() {
     }
     initDisplay();
 }
-
-// --- SCANNER LOGIC ---
-async function startScanner() {
-    document.getElementById('cameraModal').style.display = 'flex';
-    document.getElementById('ocrStatus').innerText = "Position text in view";
-    document.getElementById('loadingSpinner').style.display = "none";
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' } 
-        });
-        document.getElementById('video').srcObject = stream;
-    } catch (err) { 
-        alert("Camera access denied or unavailable."); 
-        closeScanner(); 
-    }
-}
-
-function closeScanner() {
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    document.getElementById('cameraModal').style.display = 'none';
-}
-
-async function captureImage() {
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const status = document.getElementById('ocrStatus');
-    const spinner = document.getElementById('loadingSpinner');
-    const ctx = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video, 0, 0);
-
-    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-        let gray = 0.2126 * d[i] + 0.7152 * d[i+1] + 0.0722 * d[i+2];
-        let val = (gray > 100) ? 255 : 0; 
-        d[i] = d[i+1] = d[i+2] = val;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    status.innerText = "Processing text... please wait.";
-    spinner.style.display = "block";
-    try {
-        const result = await Tesseract.recognize(canvas.toDataURL(), 'eng');
-        const cleanText = result.data.text.replace(/\r?\n|\r/g, " ").replace(/\s+/g, " ");
-        document.getElementById('textInput').value = cleanText;
-        initDisplay();
-        saveText();
-    } catch (e) {
-        alert("OCR Failed: " + e.message);
-    }
-    closeScanner();
-}
-
-document.getElementById('wpmSlider').oninput = function() {
-    document.getElementById('wpmVal').innerText = this.value;
-};
 
 if (localStorage.getItem('stenoTheme') === 'night') toggleTheme();
 loadSavedText();
