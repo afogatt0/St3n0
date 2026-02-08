@@ -8,21 +8,6 @@ let timer = null;
 let wakeLock = null;
 let currentWpm = 30;
 
-// Mapping for punctuation dictation
-const punctMap = {
-    '.': 'period',
-    ',': 'comma',
-    '!': 'exclamation point',
-    '?': 'question mark',
-    ';': 'semicolon',
-    ':': 'colon',
-    '-': 'dash',
-    '—': 'dash',
-    '(': 'open parenthesis',
-    ')': 'close parenthesis',
-    '"': 'quote'
-};
-
 function loadVoices() {
     voices = synth.getVoices();
     if (voices.length === 0) return;
@@ -72,7 +57,6 @@ function initDisplay() {
     const textInput = document.getElementById('textInput').value;
     const display = document.getElementById('displayArea');
     
-    // Split by paragraph breaks, punctuation, or spaces
     const segments = textInput.split(/(\n+|[.,!?;:\-—()"]|\s+)/);
 
     let htmlOutput = "";
@@ -84,18 +68,21 @@ function initDisplay() {
 
         if (segment.includes('\n')) {
             htmlOutput += segment.replace(/\n/g, '<br>');
-            words.push({ text: segment, type: 'newline', label: 'new paragraph' });
+            // Restore the "new paragraph" label here
+            words.push({ text: segment, type: 'newline', label: 'new paragraph', id: null });
         } else if (/^\s+$/.test(segment)) {
             htmlOutput += segment;
         } else {
-            let speakLabel = segment;
-            // Check if the segment is a punctuation mark in our map
-            if (punctMap[segment]) {
-                speakLabel = punctMap[segment];
-            }
-
+            const isPunct = /^[.,!?;:\-—()"]$/.test(segment);
+            
             htmlOutput += `<span id="w-${wordIdx}" class="word" onclick="setIndex(${wordIdx})">${segment}</span>`;
-            words.push({ text: segment, type: 'word', label: speakLabel, id: `w-${wordIdx}` });
+            
+            words.push({ 
+                text: segment, 
+                type: isPunct ? 'punctuation' : 'word', 
+                label: isPunct ? '' : segment, // Punctuation remains silent
+                id: `w-${wordIdx}` 
+            });
             wordIdx++;
         }
     });
@@ -150,22 +137,28 @@ function speakNextWord() {
     const wordObj = words[currentIndex];
     const msPerWord = (60 / currentWpm) * 1000;
     
-    synth.cancel(); 
-
-    const utterance = new SpeechSynthesisUtterance(wordObj.label);
-    const selectedVoice = voices.find(v => v.name === voiceSelect.value);
-    if (selectedVoice) utterance.voice = selectedVoice;
-    
-    if (currentWpm > 130) utterance.rate = 1.4;
-    else if (currentWpm > 90) utterance.rate = 1.1;
-    else utterance.rate = 1.0;
-
     updateHighlight(currentIndex);
+
+    // Speak if it's a word OR if it's a newline (which now has the "new paragraph" label)
+    if (wordObj.label.trim() !== "") {
+        synth.cancel(); 
+        const utterance = new SpeechSynthesisUtterance(wordObj.label);
+        const selectedVoice = voices.find(v => v.name === voiceSelect.value);
+        if (selectedVoice) utterance.voice = selectedVoice;
+        
+        if (currentWpm > 130) utterance.rate = 1.4;
+        else if (currentWpm > 90) utterance.rate = 1.1;
+        else utterance.rate = 1.0;
+
+        synth.speak(utterance);
+    }
     
-    synth.speak(utterance);
     currentIndex++;
     
-    const delay = wordObj.type === 'newline' ? msPerWord * 1.2 : msPerWord;
+    let delay = msPerWord;
+    if (wordObj.type === 'newline') delay = msPerWord * 1.5; // Slightly longer pause for the paragraph announcement
+    if (wordObj.type === 'punctuation') delay = msPerWord * 0.5;
+
     timer = setTimeout(speakNextWord, delay);
 }
 
