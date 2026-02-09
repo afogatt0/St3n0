@@ -8,6 +8,27 @@ let timer = null;
 let wakeLock = null;
 let currentWpm = 30;
 
+// 1. Improved normalization for symbols and cleaning number formatting
+function normalizeText(text) {
+    // Remove commas from numbers so the TTS engine reads them as a whole value (e.g., 1,000 -> 1000)
+    let normalized = text.replace(/(\d),(?=\d{3}(\D|$))/g, '$1');
+
+    const symbolMap = {
+        '$': ' dollars ',
+        '%': ' percent ',
+        '&': ' and ',
+        '@': ' at ',
+        '#': ' number '
+    };
+    
+    // Replace symbols with words
+    for (const [symbol, replacement] of Object.entries(symbolMap)) {
+        normalized = normalized.replace(new RegExp(`\\${symbol}`, 'g'), replacement);
+    }
+
+    return normalized.trim();
+}
+
 function loadVoices() {
     voices = synth.getVoices();
     if (voices.length === 0) return;
@@ -57,10 +78,10 @@ function initDisplay() {
     const textInput = document.getElementById('textInput').value;
     const display = document.getElementById('displayArea');
     
-    const segments = textInput.split(/(\n+|[.,!?;:\-—()"]|\s+)/);
+    // Updated regex to treat numbers with commas (like 1,000) as a single word
+    const segments = textInput.split(/(\n+|[.!?;:\-—()"]|\s+)/);
 
     let htmlOutput = "";
-    let wordIdx = 0;
     words = []; 
 
     segments.forEach((segment) => {
@@ -68,22 +89,21 @@ function initDisplay() {
 
         if (segment.includes('\n')) {
             htmlOutput += segment.replace(/\n/g, '<br>');
-            // Restore the "new paragraph" label here
             words.push({ text: segment, type: 'newline', label: 'new paragraph', id: null });
         } else if (/^\s+$/.test(segment)) {
             htmlOutput += segment;
         } else {
-            const isPunct = /^[.,!?;:\-—()"]$/.test(segment);
+            const isPunct = /^[.!?;:\-—()"]$/.test(segment);
+            const wordIdx = words.length; 
             
             htmlOutput += `<span id="w-${wordIdx}" class="word" onclick="setIndex(${wordIdx})">${segment}</span>`;
             
             words.push({ 
                 text: segment, 
                 type: isPunct ? 'punctuation' : 'word', 
-                label: isPunct ? '' : segment, // Punctuation remains silent
+                label: isPunct ? '' : normalizeText(segment), 
                 id: `w-${wordIdx}` 
             });
-            wordIdx++;
         }
     });
 
@@ -91,10 +111,23 @@ function initDisplay() {
     document.getElementById('wordCount').innerText = words.filter(w => /[a-zA-Z0-9]/.test(w.text)).length;
 }
 
+// 2. Fixed Jump Functionality: Resumes immediately after clicking
 function setIndex(i) {
-    if(isPlaying) return; 
+    const wasPlaying = isPlaying;
+    
+    // Stop current audio and timers
+    isPlaying = false;
+    synth.cancel();
+    clearTimeout(timer);
+    
     currentIndex = i;
     updateHighlight(i);
+
+    // If it was playing, restart from the new index
+    if (wasPlaying) {
+        isPlaying = true;
+        speakNextWord();
+    }
 }
 
 function updateHighlight(index) {
@@ -139,9 +172,7 @@ function speakNextWord() {
     
     updateHighlight(currentIndex);
 
-    // Speak if it's a word OR if it's a newline (which now has the "new paragraph" label)
-    if (wordObj.label.trim() !== "") {
-        synth.cancel(); 
+    if (wordObj.label && wordObj.label.trim() !== "") {
         const utterance = new SpeechSynthesisUtterance(wordObj.label);
         const selectedVoice = voices.find(v => v.name === voiceSelect.value);
         if (selectedVoice) utterance.voice = selectedVoice;
@@ -156,7 +187,7 @@ function speakNextWord() {
     currentIndex++;
     
     let delay = msPerWord;
-    if (wordObj.type === 'newline') delay = msPerWord * 1.5; // Slightly longer pause for the paragraph announcement
+    if (wordObj.type === 'newline') delay = msPerWord * 1.5;
     if (wordObj.type === 'punctuation') delay = msPerWord * 0.5;
 
     timer = setTimeout(speakNextWord, delay);
